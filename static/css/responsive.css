@@ -1,0 +1,54 @@
+/* responsive.css - additional fine-tuning */
+
+/* Tablet */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .sidebar {
+        width: 220px;
+    }
+    .main-content {
+        margin-left: 220px;
+        padding: 20px;
+    }
+    .sidebar.collapsed ~ .main-content {
+        margin-left: 80px;
+    }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .card-header-modern {
+        padding: 16px 20px;
+    }
+    .card-body-modern {
+        padding: 20px;
+    }
+    .table-modern th,
+    .table-modern td {
+        padding: 10px 12px;
+    }
+    .btn-modern {
+        padding: 8px 16px;
+    }
+    .form-modern {
+        padding: 10px 14px;
+    }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+    .main-content {
+        padding: 12px;
+        padding-bottom: 80px;
+    }
+    .card-header-modern {
+        padding: 14px 16px;
+    }
+    .card-body-modern {
+        padding: 16px;
+    }
+    .table-modern th,
+    .table-modern td {
+        font-size: 0.85rem;
+        padding: 8px 10px;
+    }
+}

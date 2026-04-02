@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Nhập học phí{% endblock %}
+
+{% block content %}
+<div class="card-modern">
+    <div class="card-header-modern">
+        <span>Nhập học phí</span>
+    </div>
+    <div class="card-body-modern">
+        <div class="row">
+            <div class="col-12 col-md-4 mb-4">
+                <div class="mb-3">
+                    <label class="form-label">Chọn lớp</label>
+                    <select id="lopSelect" class="form-modern">
+                        <option value="">-- Chọn lớp --</option>
+                        {% for lop in lop_list %}
+                        <option value="{{ lop.id }}">{{ lop.ten_lop }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Chọn sinh viên</label>
+                    <select id="sinhVienSelect" class="form-modern" disabled>
+                        <option value="">-- Chọn sinh viên --</option>
+                    </select>
+                </div>
+                <button id="btnNhapHocPhi" class="btn-modern btn-modern-primary" disabled>Nhập học phí</button>
+                <button id="btnXemHocPhi" class="btn-modern btn-modern-outline" disabled style="margin-left: 10px;">Xem danh sách</button>
+            </div>
+            <div class="col-12 col-md-8">
+                <div id="hocPhiInfo" style="display:none;">
+                    <h5>Danh sách học phí đã nhập</h5>
+                    <div class="table-responsive">
+                        <table class="table-modern">
+                            <thead>
+                                <tr>
+                                    <th>Tháng/Năm</th>
+                                    <th>Số tiền</th>
+                                    <th>Trạng thái</th>
+                                    <th>Ngày đóng</th>
+                                    <th>Ghi chú</th>
+                                    <th>Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hocPhiTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal nhập học phí -->
+<div class="modal fade" id="nhapHocPhiModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border-radius: var(--radius-card);">
+            <form method="POST" action="{{ url_for('luu_hoc_phi') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nhập học phí</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="sinh_vien_id" id="hp_sinh_vien_id">
+                    <div class="mb-3">
+                        <label class="form-label">Tháng</label>
+                        <select name="thang" class="form-modern">
+                            {% for i in range(1,13) %}
+                            <option value="{{ i }}">Tháng {{ i }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Năm</label>
+                        <select name="nam" class="form-modern">
+                            {% for i in range(2020,2031) %}
+                            <option value="{{ i }}">{{ i }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Số tiền (VNĐ)</label>
+                        <input type="number" name="so_tien" class="form-modern" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Đã đóng</label>
+                        <select name="da_dong" class="form-modern">
+                            <option value="0">Chưa đóng</option>
+                            <option value="1">Đã đóng</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ngày đóng</label>
+                        <input type="date" name="ngay_dong" class="form-modern" value="{{ now().strftime('%Y-%m-%d') }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ghi chú</label>
+                        <textarea name="ghi_chu" class="form-modern" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-modern" data-bs-dismiss="modal">Đóng</button>
+                    <button type="submit" class="btn-modern btn-modern-primary">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/nhaphocphi.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Quản lý sinh viên{% endblock %}
+
+{% block content %}
+<div class="card-modern">
+    <div class="card-header-modern d-flex justify-content-between align-items-center">
+        <span>Danh sách sinh viên</span>
+        <button class="btn-modern btn-modern-primary" id="toggleThemSinhVien">
+            <i class="bi bi-plus-lg"></i> Thêm sinh viên
+        </button>
+    </div>
+    <div class="card-body-modern">
+        <div class="table-responsive">
+            <table class="table-modern">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Mã SV</th>
+                        <th>Họ tên</th>
+                        <th>Lớp</th>
+                        <th>Ngày nhập học</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sv in sinh_vien_list %}
+                    <tr>
+                        <td>{{ sv.id }}</td>
+                        <td>{{ sv.ma_sv }}</td>
+                        <td>{{ sv.ho_ten }}</td>
+                        <td>{{ sv.ten_lop if sv.ten_lop else 'Chưa phân lớp' }}</td>
+                        <td>{{ sv.ngay_nhap_hoc }}</td>
+                        <td>
+                            <button class="btn-modern btn-modern-outline" style="margin-right: 8px;" 
+                                data-bs-toggle="modal" data-bs-target="#suaSinhVienModal"
+                                onclick="suaSinhVien({{ sv.id }}, '{{ sv.ma_sv }}', '{{ sv.ho_ten }}', {{ sv.lop_id }})">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <a href="{{ url_for('xoa_sinh_vien', id=sv.id) }}" class="btn-modern btn-modern-outline" style="color: #ef4444;" onclick="return confirm('Xóa sinh viên này?')">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Form Thêm sinh viên -->
+<div id="themSinhVienForm" style="display: none;" class="mt-4">
+    <div class="card-modern">
+        <div class="card-header-modern">
+            <span>Thêm sinh viên</span>
+        </div>
+        <div class="card-body-modern">
+            <form method="POST" action="{{ url_for('them_sinh_vien') }}">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Mã sinh viên</label>
+                        <input type="text" name="ma_sv" class="form-modern" required>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Họ tên</label>
+                        <input type="text" name="ho_ten" class="form-modern" required>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Lớp</label>
+                        <select name="lop_id" class="form-modern">
+                            <option value="">Chưa phân lớp</option>
+                            {% for lop in lop_list %}
+                            <option value="{{ lop.id }}">{{ lop.ten_lop }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Ngày nhập học</label>
+                        <input type="date" name="ngay_nhap_hoc" class="form-modern" value="{{ now().strftime('%Y-%m-%d') }}">
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn-modern btn-modern-primary">Thêm</button>
+                    <button type="button" class="btn-modern" id="cancelThemSinhVien">Hủy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Sửa sinh viên -->
+<div class="modal fade" id="suaSinhVienModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border-radius: var(--radius-card);">
+            <form method="POST" action="" id="suaSinhVienForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Sửa sinh viên</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Mã sinh viên</label>
+                        <input type="text" name="ma_sv" id="sua_ma_sv" class="form-modern" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Họ tên</label>
+                        <input type="text" name="ho_ten" id="sua_ho_ten" class="form-modern" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Lớp</label>
+                        <select name="lop_id" id="sua_lop_id" class="form-modern">
+                            <option value="">Chưa phân lớp</option>
+                            {% for lop in lop_list %}
+                            <option value="{{ lop.id }}">{{ lop.ten_lop }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-modern" data-bs-dismiss="modal">Đóng</button>
+                    <button type="submit" class="btn-modern btn-modern-primary">Cập nhật</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/sinhvien.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Quản lý lớp{% endblock %}
+
+{% block content %}
+<div class="card-modern">
+    <div class="card-header-modern d-flex justify-content-between align-items-center">
+        <span>Danh sách lớp học</span>
+        <button class="btn-modern btn-modern-primary" id="toggleThemLop">
+            <i class="bi bi-plus-lg"></i> Thêm lớp
+        </button>
+    </div>
+    <div class="card-body-modern">
+        <div class="table-responsive">
+            <table class="table-modern">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Tên lớp</th>
+                        <th>Khóa học</th>
+                        <th>Học phí mặc định</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lop in lop_list %}
+                    <tr>
+                        <td>{{ lop.id }}</td>
+                        <td>{{ lop.ten_lop }}</td>
+                        <td>{{ lop.khoa_hoc }}</td>
+                        <td>{{ "{:,.0f}".format(lop.hoc_phi_mac_dinh) }} VNĐ</td>
+                        <td>
+                            <button class="btn-modern btn-modern-outline" style="margin-right: 8px;" 
+                                data-bs-toggle="modal" data-bs-target="#suaLopModal"
+                                onclick="suaLop({{ lop.id }}, '{{ lop.ten_lop }}', '{{ lop.khoa_hoc }}', {{ lop.hoc_phi_mac_dinh }})">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <a href="{{ url_for('xoa_lop', id=lop.id) }}" class="btn-modern btn-modern-outline" style="color: #ef4444;" onclick="return confirm('Xóa lớp này sẽ xóa tất cả sinh viên và học phí?')">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Form Thêm lớp -->
+<div id="themLopForm" style="display: none;" class="mt-4">
+    <div class="card-modern">
+        <div class="card-header-modern">
+            <span>Thêm lớp mới</span>
+        </div>
+        <div class="card-body-modern">
+            <form method="POST" action="{{ url_for('them_lop') }}">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Tên lớp</label>
+                        <input type="text" name="ten_lop" class="form-modern" required>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Khóa học</label>
+                        <input type="text" name="khoa_hoc" class="form-modern">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Học phí mặc định (VNĐ)</label>
+                        <input type="number" name="hoc_phi_mac_dinh" class="form-modern" value="0">
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn-modern btn-modern-primary">Thêm</button>
+                    <button type="button" class="btn-modern" id="cancelThemLop">Hủy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Sửa lớp -->
+<div class="modal fade" id="suaLopModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border-radius: var(--radius-card);">
+            <form method="POST" action="" id="suaLopForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Sửa lớp</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Tên lớp</label>
+                        <input type="text" name="ten_lop" id="sua_ten_lop" class="form-modern" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Khóa học</label>
+                        <input type="text" name="khoa_hoc" id="sua_khoa_hoc" class="form-modern">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Học phí mặc định (VNĐ)</label>
+                        <input type="number" name="hoc_phi_mac_dinh" id="sua_hoc_phi" class="form-modern">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-modern" data-bs-dismiss="modal">Đóng</button>
+                    <button type="submit" class="btn-modern btn-modern-primary">Cập nhật</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/lop.js') }}"></script>
+{% endblock %}

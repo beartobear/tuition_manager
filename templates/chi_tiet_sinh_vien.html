@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Chi tiết học phí: {{ sinh_vien.ho_ten }}{% endblock %}
+
+{% block content %}
+<div class="card-modern">
+    <div class="card-header-modern d-flex justify-content-between align-items-center">
+        <span>Chi tiết học phí: {{ sinh_vien.ho_ten }} ({{ sinh_vien.ma_sv }})</span>
+        <div>
+            <a href="{{ url_for('export_excel_sinh_vien', sinh_vien_id=sinh_vien.id) }}" class="btn-modern btn-modern-outline" style="margin-right: 8px;">
+                <i class="bi bi-file-excel"></i> Xuất Excel
+            </a>
+            <a href="javascript:history.back()" class="btn-modern">Quay lại</a>
+        </div>
+    </div>
+    <div class="card-body-modern">
+        <div class="row mb-4">
+            <div class="col-12 col-md-6">
+                <p><strong>Mã sinh viên:</strong> {{ sinh_vien.ma_sv }}</p>
+                <p><strong>Họ tên:</strong> {{ sinh_vien.ho_ten }}</p>
+                <p><strong>Lớp:</strong> {{ sinh_vien.ten_lop if sinh_vien.ten_lop else 'Chưa phân lớp' }}</p>
+                <p><strong>Ngày nhập học:</strong> {{ sinh_vien.ngay_nhap_hoc }}</p>
+                <p><strong>Tổng số tiền đã nộp:</strong> <span style="color: #16a34a; font-weight: 700;">{{ "{:,.0f}".format(tong_da_nop) }} VNĐ</span></p>
+            </div>
+        </div>
+
+        <h5>Lịch sử đóng học phí</h5>
+        <div class="table-responsive">
+            <table class="table-modern">
+                <thead>
+                    <tr>
+                        <th>Tháng/Năm</th>
+                        <th>Số tiền</th>
+                        <th>Trạng thái</th>
+                        <th>Ngày đóng</th>
+                        <th>Ghi chú</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for hp in hoc_phi_list %}
+                    <tr class="{% if hp.da_dong == 1 %}bg-success-light{% else %}bg-danger-light{% endif %}" style="background: {% if hp.da_dong == 1 %}#dcfce7{% else %}#fee2e2{% endif %};">
+                        <td>{{ hp.thang }}/{{ hp.nam }}</td>
+                        <td>{{ "{:,.0f}".format(hp.so_tien) }} VNĐ</td>
+                        <td>{% if hp.da_dong == 1 %}Đã đóng{% else %}Chưa đóng{% endif %}</td>
+                        <td>{{ hp.ngay_dong if hp.ngay_dong else '---' }}</td>
+                        <td>{{ hp.ghi_chu if hp.ghi_chu else '---' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center">Chưa có dữ liệu học phí</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
