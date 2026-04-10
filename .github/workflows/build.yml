@@ -65,7 +65,7 @@ jobs:
 
       # ⚡ Build Electron
       - name: Build Electron
-        run: npx electron-builder
+        run: npx electron-builder --publish=never
 
       # 📤 Upload kết quả
       - name: Upload artifact
