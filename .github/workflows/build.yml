@@ -6,7 +6,6 @@ on:
 
 jobs:
   build:
-
     strategy:
       matrix:
         os: [windows-latest, macos-latest]
@@ -14,28 +13,61 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+      # 📥 Lấy code
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 🟢 Node
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
+      # 🐍 Python
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-           python-version: "3.10"
+          python-version: "3.10"
 
+      # 📦 Install Python deps
       - name: Install Python deps
         run: pip install -r requirements.txt
 
+      # 🔥 Install PyInstaller
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      # 🧠 Build Python backend
+      - name: Build Python backend (Windows)
+        if: runner.os == 'Windows'
+        run: pyinstaller --onefile --add-data "templates;templates" --add-data "static;static" app.py
+
+      - name: Build Python backend (macOS)
+        if: runner.os == 'macOS'
+        run: pyinstaller --onefile --add-data "templates:templates" --add-data "static:static" app.py
+
+      # 📁 Move backend vào Electron
+      - name: Move backend (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir electron-app\backend
+          copy dist\app.exe electron-app\backend\app.exe
+
+      - name: Move backend (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p electron-app/backend
+          cp dist/app electron-app/backend/app
+
+      # 📦 Install Node deps
       - name: Install Node deps
         run: npm install
 
+      # ⚡ Build Electron
       - name: Build Electron
         run: npx electron-builder
 
+      # 📤 Upload kết quả
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
