@@ -1,75 +1,54 @@
 const { app, BrowserWindow } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
-const fs = require('fs');
 
 let flaskProcess = null;
 let mainWindow = null;
 
-function startFlask() {
+function startBackend() {
     const isDev = !app.isPackaged;
-    let flaskPath;
+    let backendPath;
 
     if (isDev) {
-        // Đường dẫn đến file app.exe vừa build
-        flaskPath = path.join(__dirname, '..', 'dist', 'app.exe');
-        
-        // Kiểm tra file tồn tại
-        if (!fs.existsSync(flaskPath)) {
-            console.error(`Không tìm thấy backend tại: ${flaskPath}`);
-            console.log(' Hãy chạy: python -m PyInstaller --onefile --add-data "templates;templates" --add-data "static;static" app.py');
-            return;
-        }
-        
-        console.log(` Đang khởi động backend từ: ${flaskPath}`);
-        flaskProcess = spawn(flaskPath, [], { 
-            stdio: 'pipe',
-            windowsHide: true  // Ẩn cửa sổ console
-        });
+        // DEV: chạy file exe local (sau khi bạn build bằng PyInstaller)
+        backendPath = path.join(__dirname, 'backend', 'app.exe');
     } else {
-        // Production: file backend nằm trong resources
-        flaskPath = path.join(process.resourcesPath, 'flask_backend.exe');
-        
-        if (!fs.existsSync(flaskPath)) {
-            console.error(` Không tìm thấy backend tại: ${flaskPath}`);
-            return;
-        }
-        
-        console.log(` Đang khởi động backend từ: ${flaskPath}`);
-        flaskProcess = spawn(flaskPath, [], { 
-            cwd: process.resourcesPath,
-            stdio: 'pipe',
-            windowsHide: true
-        });
+        // PROD: chạy file trong resources
+        backendPath = path.join(
+            process.resourcesPath,
+            'backend',
+            process.platform === 'darwin' ? 'app' : 'app.exe'
+        );
     }
 
+    console.log("Backend path:", backendPath);
+
+    flaskProcess = spawn(backendPath);
+
     flaskProcess.stdout.on('data', (data) => {
-        console.log(` Backend: ${data}`);
-        // Khi backend sẵn sàng, load trang ngay
+        console.log(`Backend: ${data}`);
+
         if (data.toString().includes('Running on')) {
-            console.log(' Backend đã sẵn sàng!');
             if (mainWindow) {
-                console.log(' Loading http://localhost:5000');
                 mainWindow.loadURL('http://localhost:5000');
             }
         }
     });
-    
-    // Fallback: load URL sau 5 giây nếu backend chưa load
+
+    flaskProcess.stderr.on('data', (data) => {
+        console.error(`Backend error: ${data}`);
+    });
+
+    flaskProcess.on('close', (code) => {
+        console.log(`Backend exited: ${code}`);
+    });
+
+    // fallback nếu backend load chậm
     setTimeout(() => {
         if (mainWindow && !mainWindow.webContents.getURL()) {
-            console.log(' Timeout - Loading URL by force');
             mainWindow.loadURL('http://localhost:5000');
         }
     }, 5000);
-    
-    flaskProcess.stderr.on('data', (data) => {
-        console.error(` Lỗi backend: ${data}`);
-    });
-    
-    flaskProcess.on('close', (code) => {
-        console.log(`Backend thoát với mã: ${code}`);
-    });
 }
 
 function createWindow() {
@@ -81,21 +60,14 @@ function createWindow() {
             contextIsolation: true,
         },
     });
-    
-    // Mở DevTools để debug (comment này để close)
-    // mainWindow.webContents.openDevTools();
 }
 
 app.whenReady().then(() => {
-    console.log(' Electron sẵn sàng, khởi động backend...');
-    startFlask();
+    startBackend();
     createWindow();
 });
 
 app.on('window-all-closed', () => {
-    console.log(' Đóng ứng dụng...');
-    if (flaskProcess) {
-        flaskProcess.kill();
-    }
+    if (flaskProcess) flaskProcess.kill();
     if (process.platform !== 'darwin') app.quit();
 });
