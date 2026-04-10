@@ -1,260 +1,240 @@
-let currentSinhVienId = null;
-let selectedMonths = new Map();
+let currentStudent = null;
+let currentMonths = [];
+let selectedMonths = new Set(); // lưu index của tháng được chọn
 
 $(document).ready(function() {
-    // Generate random receipt code
-    const now = new Date();
-    const phieuCode = `PT-${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}-${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`;
-    $('#phieuCode').text(phieuCode);
-    
     $('#lopSelect').change(function() {
         const lopId = $(this).val();
-        if(lopId) {
+        if (lopId) {
             $.get(`/api/sinh-vien-by-lop/${lopId}`, function(data) {
-                const $svSelect = $('#sinhVienSelect');
-                $svSelect.empty().append('<option value="">-- Chọn sinh viên --</option>');
-                $.each(data, function(i, sv) {
-                    $svSelect.append(`<option value="${sv.id}">${sv.ma_sv} - ${sv.ho_ten}</option>`);
+                let options = '<option value="">-- Chọn sinh viên --</option>';
+                data.forEach(sv => {
+                    options += `<option value="${sv.id}">${sv.ma_sv} - ${sv.ho_ten}</option>`;
                 });
-                $svSelect.prop('disabled', false);
+                $('#sinhVienSelect').html(options).prop('disabled', false);
             });
         } else {
-            $('#sinhVienSelect').prop('disabled', true).empty().append('<option value="">-- Chọn sinh viên --</option>');
+            $('#sinhVienSelect').html('<option value="">-- Chọn sinh viên --</option>').prop('disabled', true);
             $('#studentProfile').hide();
             $('#suggestionArea').html('<p class="text-muted text-center">Chọn sinh viên để xem gợi ý</p>');
             $('#monthSelector').html('<p class="text-muted text-center">Chọn sinh viên để hiển thị các tháng</p>');
             $('#totalArea').hide();
         }
     });
-    
+
     $('#sinhVienSelect').change(function() {
-        const svId = $(this).val();
-        if(svId) {
-            currentSinhVienId = svId;
-            loadStudentTuitionData(svId);
+        const sinhVienId = $(this).val();
+        if (sinhVienId) {
+            loadStudentTuition(sinhVienId);
         } else {
-            currentSinhVienId = null;
             $('#studentProfile').hide();
             $('#suggestionArea').html('<p class="text-muted text-center">Chọn sinh viên để xem gợi ý</p>');
             $('#monthSelector').html('<p class="text-muted text-center">Chọn sinh viên để hiển thị các tháng</p>');
             $('#totalArea').hide();
-            selectedMonths.clear();
         }
     });
 });
 
-function loadStudentTuitionData(svId) {
-    $.get(`/api/student-tuition/${svId}`, function(data) {
-        if(!data || !data.sinh_vien || !data.months) {
-            $('#studentProfile').hide();
-            $('#suggestionArea').html('<p class="text-muted text-center">Không tìm thấy dữ liệu</p>');
-            $('#monthSelector').html('<p class="text-muted text-center">Không tìm thấy dữ liệu</p>');
-            $('#totalArea').hide();
-            return;
-        }
+function formatVND(amount) {
+    if (!amount) return '0 VNĐ';
+    return amount.toLocaleString('vi-VN') + ' VNĐ';
+}
 
-        const sv = data.sinh_vien;
-        const avatarLetter = (sv.ho_ten || '?').charAt(0).toUpperCase();
-        const tong_da_dong = data.months.filter(m => m.da_dong == 1).reduce((sum,m)=>sum+Number(m.so_tien||0),0);
-        const tong_no = data.months.filter(m => m.da_dong == 0).reduce((sum,m)=>sum+Number(m.so_tien||0),0);
-
-        const statusHtml = `
-            <div class="d-flex align-items-center">
-                <div class="avatar">${avatarLetter}</div>
-                <div class="student-info flex-grow-1">
-                    <h3>${sv.ho_ten}</h3>
-                    <div class="class-name">📚 ${sv.ten_lop || 'Chưa có lớp'} | 🆔 ${sv.ma_sv || ''}</div>
-                    <div class="class-name">📅 Nhập học: ${sv.ngay_nhap_hoc || '---'}</div>
-                </div>
-            </div>
-            <div class="financial-stats">
-                <div class="stat-item">
-                    <div class="stat-label">Học phí/Tháng</div>
-                    <div class="stat-value">${formatNumber(sv.hoc_phi_mac_dinh || 0)} VNĐ</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">Đã đóng</div>
-                    <div class="stat-value paid">${formatNumber(tong_da_dong)} VNĐ</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">Còn nợ</div>
-                    <div class="stat-value debt">${formatNumber(tong_no)} VNĐ</div>
-                </div>
-            </div>
-        `;
-        $('#studentProfile').html(statusHtml).show();
-
-        // Gợi ý khoản thu: những tháng chưa đóng
-        const unPaid = data.months.filter(m => m.da_dong == 0);
-        if(unPaid.length === 0) {
-            $('#suggestionArea').html('<div class="alert alert-success">✅ Bạn đã đóng đầy đủ học phí!</div>');
-        } else {
-            let html = '';
-            unPaid.forEach(m => {
-                const displayLabel = `Tháng ${m.thang}/${m.nam}`;
-                html += `
-                    <div class="suggestion-card" onclick="addSuggestion(${m.thang}, ${m.nam}, ${m.so_tien})">
-                        <div class="suggestion-title">💡 Gợi ý: ${displayLabel}</div>
-                        <div class="suggestion-amount">Số tiền: ${formatNumber(m.so_tien)} VNĐ</div>
-                        <small class="text-muted">Click để thêm vào danh sách</small>
-                    </div>
-                `;
-            });
-            $('#suggestionArea').html(html);
-        }
-
-        // render tháng
-        const currentYear = new Date().getFullYear();
-        let monthHtml = '';
+function loadStudentTuition(sinhVienId) {
+    $.get(`/api/student-tuition/${sinhVienId}`, function(data) {
+        const student = data.sinh_vien;
+        const months = data.months;
+        currentStudent = student;
+        currentMonths = months;
         selectedMonths.clear();
-        data.months.forEach(m => {
-            const statusClass = m.da_dong == 1 ? 'bg-light text-muted' : 'border-warning bg-warning bg-opacity-10';
-            const statusText = m.da_dong == 1 ? '(Đã đóng)' : '(Chưa đóng)';
-            const amount = Number(m.so_tien || sv.hoc_phi_mac_dinh || 0);
-            monthHtml += `
-                <div class="month-item ${statusClass}" data-month="${m.thang}" data-nam="${m.nam}" onclick="toggleMonth(${m.thang}, ${m.nam}, ${amount})">
-                    <input type="checkbox" class="month-checkbox" id="month_${m.thang}_${m.nam}" ${m.da_dong == 1 ? 'disabled' : ''} onclick="event.stopPropagation(); toggleMonth(${m.thang}, ${m.nam}, ${amount})">
-                    <span class="month-name">Tháng ${m.thang}/${m.nam} <small class="text-muted">${statusText}</small></span>
-                    <input type="number" class="month-amount" id="amount_${m.thang}_${m.nam}" value="${amount}" placeholder="Số tiền" ${m.da_dong == 1 ? 'disabled' : ''} onchange="updateAmount(${m.thang}, ${m.nam}, this.value)">
-                </div>
-            `;
-        });
 
-        $('#monthSelector').html(monthHtml);
-        $('#totalArea').hide();
+        // Hiển thị thông tin sinh viên
+        const tongDaDong = months.filter(m => m.da_dong === 1).reduce((sum, m) => sum + m.so_tien, 0);
+        const tongPhaiDong = months.reduce((sum, m) => sum + m.so_tien, 0);
+        const conNo = tongPhaiDong - tongDaDong;
+
+        $('#studentProfile').html(`
+            <h5>${student.ho_ten}</h5>
+            <p><strong>Lớp:</strong> ${student.ten_lop || 'Chưa có lớp'}</p>
+            <p><strong>Mã SV:</strong> ${student.ma_sv}</p>
+            <p><strong>Ngày nhập học:</strong> ${student.ngay_nhap_hoc}</p>
+            <p><strong>Học phí/tháng:</strong> ${formatVND(student.hoc_phi_mac_dinh)}</p>
+            <p><strong>Khóa học kéo dài:</strong> ${student.so_thang || 0} tháng</p>
+            <p><strong>Đã đóng:</strong> ${formatVND(tongDaDong)}</p>
+            <p><strong>Còn nợ:</strong> ${formatVND(conNo)}</p>
+        `).show();
+
+        // Sinh mã phiếu thu
+        let soThang = student.so_thang || 0;
+        let maSV = student.ma_sv;
+        let now = new Date();
+        let dateStr = now.toISOString().slice(0,10).replace(/-/g,'');
+        let receiptCode = `PT-${soThang}M-${maSV}-${dateStr}`;
+        $('#phieuCode').text(receiptCode);
+
+        // Render gợi ý và danh sách tháng
+        renderSuggestions(months);
+        renderMonthSelector(months);
         updateTotal();
-    }).fail(function() {
-        $('#studentProfile').hide();
-        $('#suggestionArea').html('<p class="text-muted text-center">Lỗi gọi API</p>');
-        $('#monthSelector').html('<p class="text-muted text-center">Lỗi gọi API</p>');
-        $('#totalArea').hide();
+        $('#totalArea').show();
+    }).fail(function(err) {
+        console.error(err);
+        alert('Không thể tải dữ liệu học phí');
     });
 }
 
-function loadStudentInfo(svId) {
-    // Không sử dụng nữa.
-}
-
-function loadSuggestions(svId) {
-    // Không sử dụng nữa.
-}
-
-function loadMonths(svId) {
-    // Không sử dụng nữa.
-}
-
-function toggleMonth(thang, nam, soTien) {
-    const key = `${thang}-${nam}`;
-    const checkbox = $(`#month_${thang}_${nam}`);
-    const amountInput = $(`#amount_${thang}_${nam}`);
-
-    if(checkbox.prop('disabled')) return;
-
-    if(selectedMonths.has(key)) {
-        selectedMonths.delete(key);
-        checkbox.prop('checked', false);
-        $(`.month-item[data-month="${thang}"][data-nam="${nam}"]`).removeClass('selected');
-    } else {
-        selectedMonths.set(key, {
-            thang: thang,
-            nam: nam,
-            so_tien: parseInt(amountInput.val()) || soTien
-        });
-        checkbox.prop('checked', true);
-        $(`.month-item[data-month="${thang}"][data-nam="${nam}"]`).addClass('selected');
+function renderSuggestions(months) {
+    const chuaDong = months.filter(m => m.da_dong === 0);
+    if (chuaDong.length === 0) {
+        $('#suggestionArea').html('<p class="text-muted text-center">✅ Sinh viên đã đóng đủ học phí</p>');
+        return;
     }
-
-    updateTotal();
+    let html = '<div class="list-group">';
+    chuaDong.forEach((m, idx) => {
+        html += `
+            <div class="list-group-item suggestion-item" data-month-idx="${idx}" style="cursor:pointer; border:1px solid #e5e7eb; border-radius:12px; margin-bottom:8px; padding:12px;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>📅 Tháng ${m.thang}/${m.nam}</strong><br>
+                        <span>Số tiền: ${formatVND(m.so_tien)}</span>
+                    </div>
+                    <button class="btn-modern btn-modern-primary btn-sm" onclick="addSuggestionToSelection(${idx})">+ Thêm</button>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    $('#suggestionArea').html(html);
 }
 
-function updateAmount(thang, nam, value) {
-    const key = `${thang}-${nam}`;
-    if(selectedMonths.has(key)) {
-        selectedMonths.get(key).so_tien = parseInt(value) || 0;
+function addSuggestionToSelection(monthIdx) {
+    if (!selectedMonths.has(monthIdx)) {
+        selectedMonths.add(monthIdx);
+        updateMonthSelectorUI();
         updateTotal();
     }
+}
+
+function renderMonthSelector(months) {
+    let html = '<div class="month-list">';
+    months.forEach((m, idx) => {
+        const isSelected = selectedMonths.has(idx);
+        const daDong = m.da_dong === 1;
+        const statusText = daDong ? 'Đã đóng' : 'Chưa đóng';
+        const statusClass = daDong ? 'bg-success-light' : 'bg-danger-light';
+        const checkedAttr = isSelected ? 'checked' : '';
+        const disabledAttr = daDong ? 'disabled' : '';
+        html += `
+            <div class="month-item ${isSelected ? 'selected' : ''} ${statusClass}" style="border:1px solid #e5e7eb; border-radius:12px; margin-bottom:8px; padding:12px;">
+                <div class="form-check">
+                    <input class="form-check-input month-checkbox" type="checkbox" data-month-idx="${idx}" ${checkedAttr} ${disabledAttr}>
+                    <label class="form-check-label">
+                        <strong>Tháng ${m.thang}/${m.nam}</strong> (${statusText})<br>
+                        <span>Số tiền: ${formatVND(m.so_tien)}</span>
+                    </label>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    $('#monthSelector').html(html);
+
+    // Gắn sự kiện cho checkbox
+    $('.month-checkbox').change(function() {
+        const idx = parseInt($(this).data('month-idx'));
+        if ($(this).is(':checked')) {
+            selectedMonths.add(idx);
+        } else {
+            selectedMonths.delete(idx);
+        }
+        updateMonthSelectorUI();
+        updateTotal();
+    });
+}
+
+function updateMonthSelectorUI() {
+    // Cập nhật class selected cho từng month-item
+    $('.month-item').each(function() {
+        const checkbox = $(this).find('.month-checkbox');
+        if (checkbox.length) {
+            const idx = parseInt(checkbox.data('month-idx'));
+            if (selectedMonths.has(idx)) {
+                $(this).addClass('selected');
+            } else {
+                $(this).removeClass('selected');
+            }
+        }
+    });
 }
 
 function updateTotal() {
     let total = 0;
-    selectedMonths.forEach(item => {
-        total += item.so_tien;
-    });
-    $('#totalAmount').text(formatNumber(total) + ' VNĐ');
+    for (let idx of selectedMonths) {
+        if (currentMonths[idx] && currentMonths[idx].da_dong !== 1) {
+            total += currentMonths[idx].so_tien;
+        }
+    }
+    $('#totalAmount').text(formatVND(total));
     $('#selectedCount').text(selectedMonths.size);
-    
-    if(selectedMonths.size > 0) {
-        $('#totalArea').show();
-    } else {
-        $('#totalArea').hide();
-    }
-}
-
-function addSuggestion(thang, nam, soTien) {
-    const key = `${thang}-${nam}`;
-    if(!selectedMonths.has(key)) {
-        toggleMonth(thang, nam, soTien);
-    }
 }
 
 function resetForm() {
     selectedMonths.clear();
-    $('#sinhVienSelect').val('').trigger('change');
-    $('#lopSelect').val('').trigger('change');
-    $('#totalArea').hide();
+    updateMonthSelectorUI();
+    updateTotal();
     $('#ghiChu').val('');
+    $('#paymentMethod').val('Tiền mặt');
 }
 
 function luuPhieuThu() {
-    if(!currentSinhVienId) {
-        alert('Vui lòng chọn sinh viên!');
+    if (!currentStudent) {
+        alert('Vui lòng chọn sinh viên');
         return;
     }
-    
-    if(selectedMonths.size === 0) {
-        alert('Vui lòng chọn ít nhất một tháng để thu!');
+    if (selectedMonths.size === 0) {
+        alert('Vui lòng chọn ít nhất một tháng để thu tiền');
         return;
     }
-    
-    const cacKhoanThu = [];
-    selectedMonths.forEach(item => {
-        cacKhoanThu.push({
-            thang: item.thang,
-            nam: item.nam,
-            so_tien: item.so_tien
+
+    const payments = [];
+    for (let idx of selectedMonths) {
+        const month = currentMonths[idx];
+        if (month.da_dong === 1) continue; // không thu lại tháng đã đóng
+        payments.push({
+            thang: month.thang,
+            nam: month.nam,
+            so_tien: month.so_tien,
+            da_dong: 1,
+            ngay_dong: new Date().toISOString().slice(0,10),
+            ghi_chu: $('#ghiChu').val() + ` (PT: ${$('#phieuCode').text()}, PTTT: ${$('#paymentMethod').val()})`
         });
-    });
-    
-    const data = {
-        sinh_vien_id: currentSinhVienId,
-        payments: cacKhoanThu,
-        phuong_thuc: $('#paymentMethod').val(),
-        ghi_chu: $('#ghiChu').val(),
-        ngay_thu: new Date().toISOString().split('T')[0]
-    };
+    }
+
+    if (payments.length === 0) {
+        alert('Không có tháng hợp lệ để thu');
+        return;
+    }
 
     $.ajax({
         url: '/lap-phieu-thu/luu',
         method: 'POST',
         contentType: 'application/json',
-        data: JSON.stringify(data),
+        data: JSON.stringify({
+            sinh_vien_id: currentStudent.id,
+            payments: payments
+        }),
         success: function(res) {
-            if(res.success) {
-                alert('Lưu phiếu thu thành công!');
+            if (res.success) {
+                alert('Đã lưu phiếu thu thành công!');
+                // Reload lại dữ liệu
+                loadStudentTuition(currentStudent.id);
                 resetForm();
-                if(currentSinhVienId) {
-                    loadStudentTuitionData(currentSinhVienId);
-                }
             } else {
-                alert('Lỗi: ' + JSON.stringify(res.error || res));
+                alert('Lỗi: ' + (res.error || 'Không xác định'));
             }
         },
-        error: function(xhr) {
-            alert('Có lỗi xảy ra: ' + xhr.responseText);
+        error: function(err) {
+            alert('Lỗi kết nối: ' + err.statusText);
         }
     });
-}
-
-function formatNumber(num) {
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }

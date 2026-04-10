@@ -19,6 +19,7 @@
                         <th>Tên lớp</th>
                         <th>Khóa học</th>
                         <th>Học phí mặc định</th>
+                        <th>Số tháng</th>
                         <th>Thao tác</th>
                     </tr>
                 </thead>
@@ -29,10 +30,11 @@
                         <td>{{ lop.ten_lop }}</td>
                         <td>{{ lop.khoa_hoc }}</td>
                         <td>{{ "{:,.0f}".format(lop.hoc_phi_mac_dinh) }} VNĐ</td>
+                        <td>{{ lop.so_thang if lop.so_thang else 0 }}</td>
                         <td>
                             <button class="btn-modern btn-modern-outline" style="margin-right: 8px;" 
                                 data-bs-toggle="modal" data-bs-target="#suaLopModal"
-                                onclick="suaLop({{ lop.id }}, '{{ lop.ten_lop }}', '{{ lop.khoa_hoc }}', {{ lop.hoc_phi_mac_dinh }})">
+                                onclick="suaLop({{ lop.id }}, '{{ lop.ten_lop }}', '{{ lop.khoa_hoc }}', {{ lop.hoc_phi_mac_dinh }}, {{ lop.so_thang }})">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <a href="{{ url_for('xoa_lop', id=lop.id) }}" class="btn-modern btn-modern-outline" style="color: #ef4444;" onclick="return confirm('Xóa lớp này sẽ xóa tất cả sinh viên và học phí?')">
@@ -68,6 +70,10 @@
                         <label class="form-label">Học phí mặc định (VNĐ)</label>
                         <input type="number" name="hoc_phi_mac_dinh" class="form-modern" value="0">
                     </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Số tháng khóa học</label>
+                        <input type="number" name="so_thang" class="form-modern" value="0" min="0">
+                    </div>
                 </div>
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn-modern btn-modern-primary">Thêm</button>
@@ -99,6 +105,10 @@
                     <div class="mb-3">
                         <label class="form-label">Học phí mặc định (VNĐ)</label>
                         <input type="number" name="hoc_phi_mac_dinh" id="sua_hoc_phi" class="form-modern">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Số tháng khóa học</label>
+                        <input type="number" name="so_thang" id="sua_so_thang" class="form-modern" min="0">
                     </div>
                 </div>
                 <div class="modal-footer">

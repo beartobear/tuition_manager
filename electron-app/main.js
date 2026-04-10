@@ -45,11 +45,23 @@ function startFlask() {
 
     flaskProcess.stdout.on('data', (data) => {
         console.log(` Backend: ${data}`);
-        // Khi backend sẵn sàng, có thể load trang sớm hơn
+        // Khi backend sẵn sàng, load trang ngay
         if (data.toString().includes('Running on')) {
             console.log(' Backend đã sẵn sàng!');
+            if (mainWindow) {
+                console.log(' Loading http://localhost:5000');
+                mainWindow.loadURL('http://localhost:5000');
+            }
         }
     });
+    
+    // Fallback: load URL sau 5 giây nếu backend chưa load
+    setTimeout(() => {
+        if (mainWindow && !mainWindow.webContents.getURL()) {
+            console.log(' Timeout - Loading URL by force');
+            mainWindow.loadURL('http://localhost:5000');
+        }
+    }, 5000);
     
     flaskProcess.stderr.on('data', (data) => {
         console.error(` Lỗi backend: ${data}`);
@@ -70,12 +82,8 @@ function createWindow() {
         },
     });
     
-    // Chờ 3 giây để backend khởi động
-    console.log(' Đợi 3 giây để backend khởi động...');
-    setTimeout(() => {
-        console.log('🌐 Đang tải http://localhost:5000');
-        mainWindow.loadURL('http://localhost:5000');
-    }, 3000);
+    // Mở DevTools để debug (comment này để close)
+    // mainWindow.webContents.openDevTools();
 }
 
 app.whenReady().then(() => {

@@ -1,8 +1,22 @@
-cat > .gitignore << EOF
+# Node
 node_modules/
-release/
+
+# Electron build
 dist/
+build/
+win-unpacked/
 *.exe
 *.dmg
-*.deb
-EOF
+*.zip
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log

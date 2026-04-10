@@ -8,8 +8,9 @@ import json
 import sys
 from pathlib import Path
 
+import os
 app = Flask(__name__)
-app.secret_key = 'your_secret_key_change_this_12345'
+app.secret_key = os.environ.get('SECRET_KEY', 'your_secret_key_change_this_12345')
 
 def get_exports_dir():
     if getattr(sys, 'frozen', False):
@@ -71,15 +72,16 @@ def them_lop():
     ten_lop = request.form.get('ten_lop', '').strip()
     khoa_hoc = request.form.get('khoa_hoc', '').strip()
     hoc_phi_mac_dinh = request.form.get('hoc_phi_mac_dinh', 0)
-    
-    if not ten_lop:
-        flash('Tên lớp không được để trống!', 'danger')
-        return redirect(url_for('quan_ly_lop'))
+    so_thang = request.form.get('so_thang', 0)
     
     conn = get_db_connection()
     try:
-        conn.execute('INSERT INTO lop (ten_lop, khoa_hoc, hoc_phi_mac_dinh) VALUES (?, ?, ?)',
-                     (ten_lop, khoa_hoc, hoc_phi_mac_dinh))
+        if not ten_lop:
+            flash('Tên lớp không được để trống!', 'danger')
+            return redirect(url_for('quan_ly_lop'))
+        
+        conn.execute('INSERT INTO lop (ten_lop, khoa_hoc, hoc_phi_mac_dinh, so_thang) VALUES (?, ?, ?, ?)',
+                     (ten_lop, khoa_hoc, hoc_phi_mac_dinh, so_thang))
         conn.commit()
         flash('Thêm lớp thành công!', 'success')
     except Exception as e:
@@ -95,6 +97,7 @@ def sua_lop(id):
     ten_lop = request.form.get('ten_lop', '').strip()
     khoa_hoc = request.form.get('khoa_hoc', '').strip()
     hoc_phi_mac_dinh = request.form.get('hoc_phi_mac_dinh', 0)
+    so_thang = request.form.get('so_thang', 0)
     
     if not ten_lop:
         flash('Tên lớp không được để trống!', 'danger')
@@ -102,8 +105,8 @@ def sua_lop(id):
     
     conn = get_db_connection()
     try:
-        conn.execute('UPDATE lop SET ten_lop=?, khoa_hoc=?, hoc_phi_mac_dinh=? WHERE id=?',
-                     (ten_lop, khoa_hoc, hoc_phi_mac_dinh, id))
+        conn.execute('UPDATE lop SET ten_lop=?, khoa_hoc=?, hoc_phi_mac_dinh=?, so_thang=? WHERE id=?',
+                     (ten_lop, khoa_hoc, hoc_phi_mac_dinh, so_thang, id))
         conn.commit()
         flash('Cập nhật lớp thành công!', 'success')
     except Exception as e:
@@ -502,14 +505,21 @@ def lap_phieu_thu():
     conn.close()
     return render_template('lap_phieu_thu.html', lop_list=lop_list)
 
+# Hàm cộng tháng thủ công (không cần thư viện ngoài)
+def add_months(dt, months):
+    new_month = dt.month - 1 + months
+    new_year = dt.year + new_month // 12
+    new_month = new_month % 12 + 1
+    return dt.replace(year=new_year, month=new_month, day=1)
+
 @app.route('/api/student-tuition/<int:sinh_vien_id>')
 def api_student_tuition(sinh_vien_id):
-    """Lấy danh sách các tháng học phí của sinh viên (đề xuất 5 tháng trước + tháng hiện tại + 2 tháng tới)"""
+    """Lấy danh sách các tháng học phí của sinh viên dựa trên ngày nhập học và số tháng khóa học"""
     conn = get_db_connection()
 
-    # Lấy thông tin sinh viên (kèm học phí mặc định của lớp)
+    # Lấy thông tin sinh viên (kèm học phí mặc định và số tháng của lớp)
     sv = conn.execute('''
-        SELECT sv.*, l.ten_lop as ten_lop, l.hoc_phi_mac_dinh
+        SELECT sv.*, l.ten_lop as ten_lop, l.hoc_phi_mac_dinh, l.so_thang
         FROM sinh_vien sv
         LEFT JOIN lop l ON sv.lop_id = l.id
         WHERE sv.id = ?
@@ -525,12 +535,15 @@ def api_student_tuition(sinh_vien_id):
     ''', (sinh_vien_id,)).fetchall()
     existing_map = {(row['thang'], row['nam']): row for row in existing}
 
-    # Xác định phạm vi tháng: 5 tháng trước, tháng hiện tại, 2 tháng tới
-    from datetime import datetime, timedelta
-    now = datetime.now()
+    # Xác định phạm vi tháng dựa trên ngày nhập học và số tháng của khóa học
+    ngay_nhap = datetime.strptime(sv['ngay_nhap_hoc'], '%Y-%m-%d')
+    so_thang_khoa = sv['so_thang'] or 0
+    if so_thang_khoa <= 0:
+        so_thang_khoa = 12  # fallback nếu chưa nhập số tháng
+
     months = []
-    for i in range(-5, 3):  # từ -5 đến +2
-        target = now.replace(day=1) + timedelta(days=32 * i)
+    for i in range(so_thang_khoa):
+        target = add_months(ngay_nhap, i)
         thang = target.month
         nam = target.year
         key = (thang, nam)
@@ -601,7 +614,7 @@ def luu_phieu_thu():
     finally:
         conn.close()
 
-# Theo doi dong hoc phi
+# Theo dõi đóng học phí
 @app.route('/theo-doi-dong-hoc-phi')
 def theo_doi_dong_hoc_phi():
     """Trang theo dõi đóng học phí theo tháng"""
