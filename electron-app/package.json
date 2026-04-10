@@ -1,33 +1,23 @@
-{
-  "name": "quan-ly-hoc-phi",
-  "version": "1.0.0",
-  "main": "main.js",
-  "scripts": {
-    "start": "electron .",
-    "dist": "electron-builder"
+"build": {
+  "appId": "com.tuition.manager",
+  "productName": "QuanLyHocPhi",
+  "directories": {
+    "output": "dist"
   },
-  "build": {
-    "appId": "com.yourcompany.quanlyhocphi",
-    "productName": "QuanLyHocPhi",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "main.js",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "../dist/app.exe",
-        "to": "flask_backend.exe"
-      }
-    ],
-    "win": {
-      "target": "nsis"
+  "files": [
+    "main.js",
+    "package.json"
+  ],
+  "extraResources": [
+    {
+      "from": "electron-app/backend",
+      "to": "backend"
     }
+  ],
+  "mac": {
+    "target": "dmg"
   },
-  "devDependencies": {
-    "electron": "^34.0.0",
-    "electron-builder": "^25.1.8"
+  "win": {
+    "target": "nsis"
   }
 }
