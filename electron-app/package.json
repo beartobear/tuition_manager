@@ -1,7 +1,13 @@
 {
   "name": "electron-app",
   "version": "1.0.0",
+  "description": "Tuition Manager Electron App",
   "main": "main.js",
+  "author": "beartobear",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron ."
+  },
   "build": {
     "appId": "com.tuition.manager",
     "productName": "QuanLyHocPhi",
@@ -18,11 +24,12 @@
         "to": "backend"
       }
     ],
-    "mac": {
-      "target": "dmg"
-    },
     "win": {
       "target": "nsis"
     }
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^28.0.0"
   }
 }
