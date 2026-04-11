@@ -3,6 +3,7 @@ name: Build App (Win + Mac)
 on:
   push:
     branches: [main]
+  workflow_dispatch:  # Cho phép chạy thủ công
 
 jobs:
   build:
@@ -25,7 +26,7 @@ jobs:
 
       # 🐍 Python
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
@@ -37,39 +38,70 @@ jobs:
       - name: Install PyInstaller
         run: pip install pyinstaller
 
-      # 🧠 Build Python backend
+      # 🧠 Build Python backend (Windows)
       - name: Build Python backend (Windows)
         if: runner.os == 'Windows'
-        run: pyinstaller --onefile --add-data "templates;templates" --add-data "static;static" app.py
+        run: |
+          pyinstaller --onefile --add-data "templates;templates" --add-data "static;static" --name app app.py
+          # Kiểm tra file đã được tạo
+          dir dist
 
       - name: Build Python backend (macOS)
         if: runner.os == 'macOS'
-        run: pyinstaller --onefile --add-data "templates:templates" --add-data "static:static" app.py
+        run: |
+          pyinstaller --onefile --add-data "templates:templates" --add-data "static:static" --name app app.py
+          # Kiểm tra file đã được tạo
+          ls -la dist
 
       # 📁 Move backend vào Electron
       - name: Move backend (Windows)
         if: runner.os == 'Windows'
         run: |
-          mkdir electron-app\backend
+          mkdir electron-app\backend 2>nul
           copy dist\app.exe electron-app\backend\app.exe
+          # Xác nhận file đã được copy
+          dir electron-app\backend
 
       - name: Move backend (macOS)
         if: runner.os == 'macOS'
         run: |
           mkdir -p electron-app/backend
           cp dist/app electron-app/backend/app
+          chmod +x electron-app/backend/app
+          # Xác nhận file đã được copy
+          ls -la electron-app/backend
 
-      # 📦 Install Node deps
+      # 📦 Install Node deps và cài electron-builder
       - name: Install Node deps
-        run: npm install
+        working-directory: ./electron-app
+        run: |
+          npm install
+          npm install --save-dev electron-builder
 
-      # ⚡ Build Electron
-      - name: Build Electron
-        run: npx electron-builder --publish=never
+      # ⚡ Build Electron (quan trọng: phải chạy trong thư mục electron-app)
+      - name: Build Electron (Windows)
+        if: runner.os == 'Windows'
+        working-directory: ./electron-app
+        run: npx electron-builder --win --publish=never
 
-      # 📤 Upload kết quả
-      - name: Upload artifact
+      - name: Build Electron (macOS)
+        if: runner.os == 'macOS'
+        working-directory: ./electron-app
+        run: npx electron-builder --mac --publish=never
+
+      # 📤 Upload kết quả (sửa đường dẫn đúng)
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.os }}
-          path: dist/
+          name: build-windows
+          path: |
+            electron-app/dist/*.exe
+            electron-app/dist/*.nsis
+
+      - name: Upload artifact (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-macos
+          path: electron-app/dist/*.dmg
