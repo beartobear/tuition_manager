@@ -9,10 +9,12 @@ let mainWindow = null;
 function startBackend() {
     const isDev = !app.isPackaged;
     let backendPath;
+    const isWindows = process.platform === 'win32';
+    const backendExecutable = isWindows ? 'app.exe' : 'app';  // ✅ Quan trọng
 
     if (isDev) {
         // Môi trường phát triển
-        backendPath = path.join(__dirname, 'backend', 'app.exe');
+        backendPath = path.join(__dirname, 'backend', backendExecutable);
         
         // Nếu không có exe, thử chạy Python
         if (!fs.existsSync(backendPath)) {
@@ -25,27 +27,43 @@ function startBackend() {
         }
     } else {
         // Môi trường production
-        backendPath = path.join(process.resourcesPath, 'backend', 'app.exe');
+        backendPath = path.join(process.resourcesPath, 'backend', backendExecutable);
         
         // Kiểm tra file tồn tại
         if (!fs.existsSync(backendPath)) {
             console.error(`Backend not found at: ${backendPath}`);
             
-            // Hiển thị thông báo lỗi cho người dùng
             dialog.showErrorBox(
                 'Lỗi khởi động',
                 `Không tìm thấy file backend tại:\n${backendPath}\n\nVui lòng cài đặt lại ứng dụng.`
             );
             return null;
         }
+        
+        // ✅ Thêm quyền thực thi cho macOS/Linux
+        if (!isWindows) {
+            try {
+                fs.chmodSync(backendPath, 0o755);
+            } catch (err) {
+                console.error('Failed to set executable permission:', err);
+            }
+        }
     }
 
     console.log('Starting backend from:', backendPath);
     
     try {
-        flaskProcess = spawn(backendPath, [], {
+        // ✅ Thêm options cho macOS
+        const spawnOptions = {
             stdio: ['ignore', 'pipe', 'pipe']
-        });
+        };
+        
+        // Trên macOS, cần chạy với shell nếu có vấn đề về permission
+        if (!isWindows) {
+            spawnOptions.shell = true;
+        }
+        
+        flaskProcess = spawn(backendPath, [], spawnOptions);
         
         flaskProcess.stdout.on('data', (data) => {
             const output = data.toString();
@@ -102,7 +120,6 @@ function createWindow() {
         show: false
     });
     
-    // Hiển thị loading
     mainWindow.loadURL(`data:text/html,<html>
         <body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:Arial">
             <div style="text-align:center">
