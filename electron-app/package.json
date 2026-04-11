@@ -1,13 +1,11 @@
 {
   "name": "quan-ly-hoc-phi",
   "version": "1.0.0",
-  "description": "Quan ly hoc phi",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder",
-    "dist:win": "electron-builder --win --x64",
-    "dist:mac": "electron-builder --mac"
+    "dist:win": "electron-builder --win --x64"
   },
   "build": {
     "appId": "com.tuition.manager",
@@ -17,8 +15,7 @@
     },
     "files": [
       "main.js",
-      "package.json",
-      "!node_modules"
+      "package.json"
     ],
     "extraResources": [
       {
@@ -28,12 +25,7 @@
       }
     ],
     "win": {
-      "target": "nsis",
-      "icon": "build/icon.ico"
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "build/icon.icns"
+      "target": "nsis"
     },
     "nsis": {
       "oneClick": false,
