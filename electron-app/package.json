@@ -1,13 +1,13 @@
 {
   "name": "quan-ly-hoc-phi",
   "version": "1.0.0",
-  "description": "Quản lý học phí",  // ✅ NÊN THÊM description
+  "description": "Quan ly hoc phi",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win --x64",
-    "dist:mac": "electron-builder --mac"  // ✅ NÊN THÊM cho macOS
+    "dist:mac": "electron-builder --mac"
   },
   "build": {
     "appId": "com.tuition.manager",
@@ -31,7 +31,7 @@
       "target": "nsis",
       "icon": "build/icon.ico"
     },
-    "mac": {  // ✅ NÊN THÊM cấu hình macOS
+    "mac": {
       "target": "dmg",
       "icon": "build/icon.icns"
     },
