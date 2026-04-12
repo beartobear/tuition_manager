@@ -7,17 +7,26 @@
     <div class="card-header-modern d-flex justify-content-between align-items-center">
         <span>Báo cáo lớp: {{ lop.ten_lop }}</span>
         <div>
+            <button id="btnExportSelected" class="btn-modern btn-modern-outline" style="margin-right: 8px;">
+                Xuất Excel thuế
+            </button>
+
             <a href="{{ url_for('export_excel_lop', lop_id=lop.id) }}" class="btn-modern btn-modern-outline" style="margin-right: 8px;">
-                <i class="bi bi-file-excel"></i> Xuất Excel
+                Xuất Excel
             </a>
+
             <a href="{{ url_for('bao_cao') }}" class="btn-modern">Quay lại</a>
         </div>
     </div>
+
     <div class="card-body-modern">
         <div class="table-responsive">
             <table class="table-modern">
                 <thead>
                     <tr>
+                        <th>
+                            <input type="checkbox" id="checkAll">
+                        </th>
                         <th>Mã SV</th>
                         <th>Họ tên</th>
                         {% for thang in thang_list %}
@@ -29,26 +38,17 @@
                 <tbody>
                     {% for sv in sinh_vien_list %}
                     <tr>
-                        <td style="vertical-align: top;">{{ sv.ma_sv }}</td>
-                        <td style="vertical-align: top;"><a href="{{ url_for('chi_tiet_sinh_vien', sinh_vien_id=sv.id) }}" style="color: var(--accent); text-decoration: none;">{{ sv.ho_ten }}</a></td>
+                        <td>
+                            <input type="checkbox" class="row-check" value="{{ sv.id }}">
+                        </td>
+                        <td>{{ sv.ma_sv }}</td>
+                        <td>{{ sv.ho_ten }}</td>
+
                         {% for thang in thang_list %}
-                            {% set found = false %}
-                            {% for hp in hoc_phi_data %}
-                                {% if hp.sinh_vien_id == sv.id and hp.nam == thang_dict[thang].nam and hp.thang == thang_dict[thang].thang %}
-                                    <td style="vertical-align: top; background: {% if hp.da_dong == 1 %}#dcfce7{% else %}#fee2e2{% endif %};">
-                                        <div>{{ "{:,.0f}".format(hp.so_tien) }} VNĐ</div>
-                                        <div style="font-size: 0.9em; color: {% if hp.da_dong == 1 %}#22c55e{% else %}#ef4444{% endif %};">
-                                            {% if hp.da_dong == 1 %}✓ Đã đóng{% else %}✗ Chưa đóng{% endif %}
-                                        </div>
-                                    </td>
-                                    {% set found = true %}
-                                {% endif %}
-                            {% endfor %}
-                            {% if not found %}
-                            <td style="vertical-align: top; text-align: center; color: #999;">---</td>
-                            {% endif %}
+                        <td>-</td>
                         {% endfor %}
-                        <td style="vertical-align: top;"><strong>{{ "{:,.0f}".format(sv.tong_da_nop) }} VNĐ</strong></td>
+
+                        <td>{{ "{:,.0f}".format(sv.tong_da_nop) }} VNĐ</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -56,4 +56,46 @@
         </div>
     </div>
 </div>
+
+<script>
+function getSelectedIds() {
+    let ids = [];
+    document.querySelectorAll('.row-check:checked').forEach(cb => {
+        ids.push(cb.value);
+    });
+    return ids;
+}
+
+// check all
+document.getElementById('checkAll').addEventListener('change', function () {
+    document.querySelectorAll('.row-check').forEach(cb => {
+        cb.checked = this.checked;
+    });
+});
+
+// export selected
+document.getElementById('btnExportSelected').addEventListener('click', function () {
+    const ids = getSelectedIds();
+
+    if (ids.length === 0) {
+        alert("Vui lòng chọn sinh viên!");
+        return;
+    }
+
+    fetch('/export/excel-thue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: ids })
+    })
+    .then(res => res.blob())
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'excel_thue.xlsx';
+        a.click();
+    });
+});
+</script>
+
 {% endblock %}
