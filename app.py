@@ -688,5 +688,38 @@ import sys
 import webbrowser
 import threading
 
+@app.route('/export/excel-thue', methods=['POST'])
+def export_excel_thue():
+    data = request.get_json()
+    ids = data.get('ids', [])
+
+    if not ids:
+        return "Không có dữ liệu", 400
+
+    conn = get_db_connection()
+
+    query = f'''
+        SELECT sv.ma_sv, sv.ho_ten,
+               hp.thang, hp.nam, hp.so_tien,
+               CASE WHEN hp.da_dong = 1 THEN 'Đã đóng' ELSE 'Chưa đóng' END as trang_thai
+        FROM sinh_vien sv
+        LEFT JOIN hoc_phi hp ON sv.id = hp.sinh_vien_id
+        WHERE sv.id IN ({','.join(['?']*len(ids))})
+        ORDER BY sv.ho_ten
+    '''
+
+    rows = conn.execute(query, ids).fetchall()
+    conn.close()
+
+    if not rows:
+        return "Không có dữ liệu", 400
+
+    df = pd.DataFrame([dict(r) for r in rows])
+
+    filename = EXPORTS_DIR / f"excel_thue_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    df.to_excel(filename, index=False)
+
+    return send_file(str(filename), as_attachment=True, download_name="excel_thue.xlsx")
+
 if __name__ == '__main__':
     app.run(debug=False, host='127.0.0.1', port=5000)
