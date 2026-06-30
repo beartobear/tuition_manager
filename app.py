@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify, make_response
 from database import get_db_connection, init_db
 import sqlite3
 from datetime import datetime
@@ -7,6 +7,13 @@ import os
 import json
 import sys
 from pathlib import Path
+from io import BytesIO
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.lib.utils import simpleSplit
 
 import os
 app = Flask(__name__)
@@ -26,6 +33,32 @@ def get_exports_dir():
     return exports_dir
 
 EXPORTS_DIR = get_exports_dir()
+RECEIPT_PRINT_ADDRESS = 'Trung tâm Anh Đêm - 123 Nguyễn Văn Cừ, Quận 5, TP. HCM'
+
+PDF_FONT_NAME = None
+
+def _get_pdf_font_path():
+    win_fonts = os.path.join(os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts')
+    candidates = [
+        os.path.join(win_fonts, 'arial.ttf'),
+        os.path.join(win_fonts, 'times.ttf'),
+        os.path.join(win_fonts, 'tahoma.ttf'),
+        os.path.join(win_fonts, 'DejaVuSans.ttf'),
+    ]
+    for path in candidates:
+        if os.path.isfile(path):
+            return path
+    return None
+
+font_path = _get_pdf_font_path()
+if font_path:
+    try:
+        pdfmetrics.registerFont(TTFont('PDFFont', font_path))
+        PDF_FONT_NAME = 'PDFFont'
+    except Exception:
+        PDF_FONT_NAME = 'Helvetica'
+else:
+    PDF_FONT_NAME = 'Helvetica'
 
 # Khởi tạo database
 init_db()
@@ -580,12 +613,23 @@ def luu_phieu_thu():
     data = request.get_json()
     sinh_vien_id = data.get('sinh_vien_id')
     payments = data.get('payments', [])  # list of {thang, nam, so_tien, da_dong, ngay_dong, ghi_chu}
+    receipt_code = data.get('receipt_code')
+    payment_method = data.get('payment_method', '')
+    ghi_chu = data.get('ghi_chu', '')
+    nhan_xet = data.get('nhan_xet', '')
 
-    if not sinh_vien_id or not payments:
+    if not sinh_vien_id or not payments or not receipt_code:
         return jsonify({'error': 'Thiếu thông tin'}), 400
 
     conn = get_db_connection()
     try:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO phieu_thu (receipt_code, sinh_vien_id, payment_method, ghi_chu, nhan_xet, dia_chi_in)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (receipt_code, sinh_vien_id, payment_method, ghi_chu, nhan_xet, RECEIPT_PRINT_ADDRESS))
+        receipt_id = cursor.lastrowid
+
         for p in payments:
             # Kiểm tra đã tồn tại chưa
             existing = conn.execute('''
@@ -606,13 +650,186 @@ def luu_phieu_thu():
                     INSERT INTO hoc_phi (sinh_vien_id, thang, nam, so_tien, da_dong, ngay_dong, ghi_chu)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 ''', (sinh_vien_id, p['thang'], p['nam'], p['so_tien'], p.get('da_dong', 0), p.get('ngay_dong'), p.get('ghi_chu', '')))
+
+            conn.execute('''
+                INSERT INTO phieu_thu_chi_tiet (phieu_thu_id, thang, nam, so_tien)
+                VALUES (?, ?, ?, ?)
+            ''', (receipt_id, p['thang'], p['nam'], p['so_tien']))
+
         conn.commit()
-        return jsonify({'success': True})
+        return jsonify({'success': True, 'receipt_id': receipt_id})
     except Exception as e:
         conn.rollback()
         return jsonify({'error': str(e)}), 500
     finally:
         conn.close()
+
+@app.route('/phieu-thu')
+def phieu_thu_list():
+    """Danh sách phiếu thu đã lưu"""
+    conn = get_db_connection()
+    receipts = conn.execute('''
+        SELECT pt.*, sv.ho_ten, sv.ma_sv, l.ten_lop
+        FROM phieu_thu pt
+        LEFT JOIN sinh_vien sv ON pt.sinh_vien_id = sv.id
+        LEFT JOIN lop l ON sv.lop_id = l.id
+        ORDER BY pt.created_at DESC
+    ''').fetchall()
+    conn.close()
+    return render_template('phieu_thu_list.html', receipts=receipts)
+
+@app.route('/phieu-thu/<int:receipt_id>')
+def phieu_thu_view(receipt_id):
+    """Xem nội dung phiếu thu"""
+    conn = get_db_connection()
+    receipt = conn.execute('''
+        SELECT pt.*, sv.ho_ten, sv.ma_sv, l.ten_lop, l.khoa_hoc
+        FROM phieu_thu pt
+        LEFT JOIN sinh_vien sv ON pt.sinh_vien_id = sv.id
+        LEFT JOIN lop l ON sv.lop_id = l.id
+        WHERE pt.id = ?
+    ''', (receipt_id,)).fetchone()
+    if not receipt:
+        conn.close()
+        return redirect(url_for('phieu_thu_list'))
+    details = conn.execute('''
+        SELECT * FROM phieu_thu_chi_tiet
+        WHERE phieu_thu_id = ?
+        ORDER BY nam DESC, thang DESC
+    ''', (receipt_id,)).fetchall()
+    conn.close()
+    return render_template('phieu_thu.html', receipt=receipt, details=details, print_address=RECEIPT_PRINT_ADDRESS)
+
+@app.route('/phieu-thu/<int:receipt_id>/download')
+def phieu_thu_download(receipt_id):
+    """Tải phiếu thu dưới dạng file HTML"""
+    conn = get_db_connection()
+    receipt = conn.execute('''
+        SELECT pt.*, sv.ho_ten, sv.ma_sv, l.ten_lop, l.khoa_hoc
+        FROM phieu_thu pt
+        LEFT JOIN sinh_vien sv ON pt.sinh_vien_id = sv.id
+        LEFT JOIN lop l ON sv.lop_id = l.id
+        WHERE pt.id = ?
+    ''', (receipt_id,)).fetchone()
+    if not receipt:
+        conn.close()
+        return redirect(url_for('phieu_thu_list'))
+    details = conn.execute('''
+        SELECT * FROM phieu_thu_chi_tiet
+        WHERE phieu_thu_id = ?
+        ORDER BY nam DESC, thang DESC
+    ''', (receipt_id,)).fetchall()
+    conn.close()
+    html = render_template('phieu_thu.html', receipt=receipt, details=details, print_address=RECEIPT_PRINT_ADDRESS)
+    response = make_response(html)
+    filename = f"phieu_thu_{receipt['receipt_code']}.html"
+    response.headers['Content-Type'] = 'text/html; charset=utf-8'
+    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+@app.route('/phieu-thu/<int:receipt_id>/download/pdf')
+def phieu_thu_download_pdf(receipt_id):
+    """Tải phiếu thu dưới dạng file PDF"""
+    conn = get_db_connection()
+    receipt = conn.execute('''
+        SELECT pt.*, sv.ho_ten, sv.ma_sv, l.ten_lop, l.khoa_hoc
+        FROM phieu_thu pt
+        LEFT JOIN sinh_vien sv ON pt.sinh_vien_id = sv.id
+        LEFT JOIN lop l ON sv.lop_id = l.id
+        WHERE pt.id = ?
+    ''', (receipt_id,)).fetchone()
+    if not receipt:
+        conn.close()
+        return redirect(url_for('phieu_thu_list'))
+    details = conn.execute('''
+        SELECT * FROM phieu_thu_chi_tiet
+        WHERE phieu_thu_id = ?
+        ORDER BY nam DESC, thang DESC
+    ''', (receipt_id,)).fetchall()
+    conn.close()
+
+    buffer = BytesIO()
+    page_width, page_height = A4
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    pdf.setFont(PDF_FONT_NAME, 16)
+    pdf.drawCentredString(page_width / 2, page_height - 30 * mm, 'PHIẾU THU')
+    pdf.setFont(PDF_FONT_NAME, 10)
+    pdf.drawCentredString(page_width / 2, page_height - 38 * mm, f"Mã phiếu: {receipt['receipt_code']}")
+
+    y = page_height - 48 * mm
+    pdf.setFont(PDF_FONT_NAME, 10)
+    pdf.drawString(25 * mm, y, f"Học sinh: {receipt['ho_ten'] or '-'}")
+    pdf.drawString(110 * mm, y, f"Mã SV: {receipt['ma_sv'] or '-'}")
+    y -= 7 * mm
+    pdf.drawString(25 * mm, y, f"Lớp: {receipt['ten_lop'] or '-'}")
+    pdf.drawString(110 * mm, y, f"Khóa học: {receipt['khoa_hoc'] or '-'}")
+    y -= 7 * mm
+    pdf.drawString(25 * mm, y, f"Ngày tạo: {receipt['created_at']}")
+    pdf.drawString(110 * mm, y, f"PT thanh toán: {receipt['payment_method'] or '-'}")
+    y -= 10 * mm
+    pdf.drawString(25 * mm, y, f"Địa chỉ in: {RECEIPT_PRINT_ADDRESS}")
+
+    y -= 12 * mm
+    pdf.line(25 * mm, y, page_width - 25 * mm, y)
+    y -= 10 * mm
+
+    pdf.setFont(PDF_FONT_NAME, 11)
+    pdf.drawString(25 * mm, y, 'Tháng/Năm')
+    pdf.drawString(90 * mm, y, 'Số tiền (VNĐ)')
+    y -= 7 * mm
+    pdf.line(25 * mm, y, page_width - 25 * mm, y)
+    y -= 8 * mm
+
+    total = 0
+    pdf.setFont(PDF_FONT_NAME, 10)
+    for item in details:
+        if y < 40 * mm:
+            pdf.showPage()
+            pdf.setFont(PDF_FONT_NAME, 10)
+            y = page_height - 30 * mm
+        pdf.drawString(25 * mm, y, f"{item['thang']}/{item['nam']}")
+        pdf.drawRightString(page_width - 25 * mm, y, f"{item['so_tien']:,} VNĐ")
+        total += item['so_tien'] or 0
+        y -= 7 * mm
+
+    y -= 6 * mm
+    pdf.line(25 * mm, y, page_width - 25 * mm, y)
+    y -= 8 * mm
+    pdf.setFont(PDF_FONT_NAME, 11)
+    pdf.drawString(25 * mm, y, 'Tổng cộng')
+    pdf.drawRightString(page_width - 25 * mm, y, f"{total:,} VNĐ")
+    y -= 12 * mm
+    pdf.line(25 * mm, y, page_width - 25 * mm, y)
+
+    y -= 12 * mm
+    pdf.setFont(PDF_FONT_NAME, 10)
+    pdf.drawString(25 * mm, y, 'Ghi chú:')
+    y -= 6 * mm
+    text = receipt['ghi_chu'] or '-'
+    for line in simpleSplit(text, PDF_FONT_NAME, 10, page_width - 50 * mm):
+        if y < 30 * mm:
+            pdf.showPage()
+            pdf.setFont(PDF_FONT_NAME, 10)
+            y = page_height - 30 * mm
+        pdf.drawString(25 * mm, y, line)
+        y -= 6 * mm
+    y -= 4 * mm
+    pdf.drawString(25 * mm, y, 'Nhận xét PH:')
+    y -= 6 * mm
+    comment_text = receipt['nhan_xet'] or '-'
+    for line in simpleSplit(comment_text, PDF_FONT_NAME, 10, page_width - 50 * mm):
+        if y < 30 * mm:
+            pdf.showPage()
+            pdf.setFont(PDF_FONT_NAME, 10)
+            y = page_height - 30 * mm
+        pdf.drawString(25 * mm, y, line)
+        y -= 6 * mm
+
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+    filename = f"phieu_thu_{receipt['receipt_code']}.pdf"
+    return send_file(buffer, download_name=filename, as_attachment=True, mimetype='application/pdf')
 
 # Theo dõi đóng học phí
 @app.route('/theo-doi-dong-hoc-phi')

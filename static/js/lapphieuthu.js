@@ -180,10 +180,13 @@ function updateTotal() {
 
 function resetForm() {
     selectedMonths.clear();
+    $('.month-checkbox').prop('checked', false);
     updateMonthSelectorUI();
     updateTotal();
     $('#ghiChu').val('');
+    $('#nhanXet').val('');
     $('#paymentMethod').val('Tiền mặt');
+    $('#receiptActions').hide().html('');
 }
 
 function luuPhieuThu() {
@@ -196,6 +199,24 @@ function luuPhieuThu() {
         return;
     }
 
+    const ghiChu = $('#ghiChu').val().trim();
+    const nhanXet = $('#nhanXet').val().trim();
+    const phieuCode = $('#phieuCode').text().trim();
+    const paymentMethod = $('#paymentMethod').val();
+
+    let fullComment = '';
+    if (ghiChu) {
+        fullComment += ghiChu;
+    }
+    if (nhanXet) {
+        if (fullComment) fullComment += ' | ';
+        fullComment += `Nhận xét PH: ${nhanXet}`;
+    }
+    if (fullComment) {
+        fullComment += ' | ';
+    }
+    fullComment += `PT: ${phieuCode}, PTTT: ${paymentMethod}`;
+
     const payments = [];
     for (let idx of selectedMonths) {
         const month = currentMonths[idx];
@@ -206,7 +227,7 @@ function luuPhieuThu() {
             so_tien: month.so_tien,
             da_dong: 1,
             ngay_dong: new Date().toISOString().slice(0,10),
-            ghi_chu: $('#ghiChu').val() + ` (PT: ${$('#phieuCode').text()}, PTTT: ${$('#paymentMethod').val()})`
+            ghi_chu: fullComment
         });
     }
 
@@ -221,14 +242,22 @@ function luuPhieuThu() {
         contentType: 'application/json',
         data: JSON.stringify({
             sinh_vien_id: currentStudent.id,
+            receipt_code: $('#phieuCode').text().trim(),
+            payment_method: $('#paymentMethod').val(),
+            ghi_chu: $('#ghiChu').val().trim(),
+            nhan_xet: $('#nhanXet').val().trim(),
             payments: payments
         }),
         success: function(res) {
             if (res.success) {
                 alert('Đã lưu phiếu thu thành công!');
+                resetForm();
+                $('#receiptActions').html(`
+                    <a href="/phieu-thu/${res.receipt_id}" target="_blank" class="btn-modern btn-modern-primary">Xem phiếu thu</a>
+                    <a href="/phieu-thu/${res.receipt_id}/download/pdf" class="btn-modern btn-modern-primary">Tải PDF</a>
+                `).show();
                 // Reload lại dữ liệu
                 loadStudentTuition(currentStudent.id);
-                resetForm();
             } else {
                 alert('Lỗi: ' + (res.error || 'Không xác định'));
             }
