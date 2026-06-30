@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Danh sách phiếu thu{% endblock %}
+
+{% block content %}
+<div class="card-modern">
+    <div class="card-header-modern d-flex justify-content-between align-items-center">
+        <span>Danh sách phiếu thu</span>
+        <a href="{{ url_for('lap_phieu_thu') }}" class="btn-modern btn-modern-primary">Lập phiếu thu mới</a>
+    </div>
+    <div class="card-body-modern">
+        {% if receipts %}
+        <div class="table-responsive">
+            <table class="table-modern w-100">
+                <thead>
+                    <tr>
+                        <th>Mã phiếu</th>
+                        <th>Học sinh</th>
+                        <th>Lớp</th>
+                        <th>Ngày tạo</th>
+                        <th>Phương thức</th>
+                        <th>Ghi chú</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for receipt in receipts %}
+                    <tr>
+                        <td>{{ receipt.receipt_code }}</td>
+                        <td>{{ receipt.ho_ten or 'N/A' }}</td>
+                        <td>{{ receipt.ten_lop or 'N/A' }}</td>
+                        <td>{{ receipt.created_at }}</td>
+                        <td>{{ receipt.payment_method or 'N/A' }}</td>
+                        <td>{{ receipt.ghi_chu or '' }}{% if receipt.nhan_xet %} | PH: {{ receipt.nhan_xet }}{% endif %}</td>
+                        <td class="text-end">
+                            <a href="{{ url_for('phieu_thu_view', receipt_id=receipt.id) }}" class="btn-modern btn-modern-outline btn-sm">Xem</a>
+                            <a href="{{ url_for('phieu_thu_download_pdf', receipt_id=receipt.id) }}" class="btn-modern btn-modern-primary btn-sm">PDF</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">Chưa có phiếu thu nào được lưu.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Phiếu thu {{ receipt.receipt_code }}{% endblock %}
+
+{% block content %}
+<div class="card-modern">
+    <div class="card-header-modern d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="mb-1">Phiếu thu</h4>
+            <div class="text-muted">Mã phiếu: {{ receipt.receipt_code }}</div>
+        </div>
+        <div class="text-end">
+            <a href="{{ url_for('phieu_thu_list') }}" class="btn-modern btn-modern-outline btn-sm">Danh sách</a>
+            <a href="{{ url_for('phieu_thu_download', receipt_id=receipt.id) }}" class="btn-modern btn-modern-primary btn-sm">Tải HTML</a>
+            <a href="{{ url_for('phieu_thu_download_pdf', receipt_id=receipt.id) }}" class="btn-modern btn-modern-primary btn-sm">Tải PDF</a>
+        </div>
+    </div>
+    <div class="card-body-modern">
+        <div class="row mb-4">
+            <div class="col-12 col-md-6">
+                <div class="mb-3"><strong>Học sinh:</strong> {{ receipt.ho_ten or '-' }}</div>
+                <div class="mb-3"><strong>Mã SV:</strong> {{ receipt.ma_sv or '-' }}</div>
+                <div class="mb-3"><strong>Lớp:</strong> {{ receipt.ten_lop or '-' }}</div>
+                <div class="mb-3"><strong>Khóa học:</strong> {{ receipt.khoa_hoc or '-' }}</div>
+            </div>
+            <div class="col-12 col-md-6">
+                <div class="mb-3"><strong>Ngày giờ tạo:</strong> {{ receipt.created_at }}</div>
+                <div class="mb-3"><strong>Địa chỉ in:</strong> {{ print_address }}</div>
+                <div class="mb-3"><strong>Phương thức:</strong> {{ receipt.payment_method or '-' }}</div>
+            </div>
+        </div>
+
+        <div class="table-responsive mb-4">
+            <table class="table-modern w-100">
+                <thead>
+                    <tr>
+                        <th>Tháng/Năm</th>
+                        <th>Số tiền</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set total = 0 %}
+                    {% for item in details %}
+                    <tr>
+                        <td>{{ item.thang }}/{{ item.nam }}</td>
+                        <td>{{ item.so_tien | format_vnd }} VNĐ</td>
+                    </tr>
+                    {% set total = total + item.so_tien %}
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th>Tổng</th>
+                        <th>{{ total | format_vnd }} VNĐ</th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="mb-2"><strong>Ghi chú:</strong></div>
+        <div class="mb-3">{{ receipt.ghi_chu or '-' }}</div>
+        <div class="mb-2"><strong>Nhận xét phụ huynh:</strong></div>
+        <div>{{ receipt.nhan_xet or '-' }}</div>
+    </div>
+</div>
+{% endblock %}

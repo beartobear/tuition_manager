@@ -7,82 +7,119 @@
     .bg-success-light { background-color: #dcfce7; }
     .bg-danger-light { background-color: #fee2e2; }
     .month-item.selected { background: linear-gradient(135deg, #60A5FA10 0%, #3B82F610 100%); border-color: var(--accent); }
+    .receipt-headline { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.05em; }
+    .profile-summary { background: var(--bg-primary); border-radius: 18px; padding: 18px; }
+    .profile-summary .label { color: #6b7280; font-size: 0.92rem; }
+    .profile-summary .value { font-size: 1rem; font-weight: 600; }
+    .card-modern .card-header-modern { font-size: 1rem; letter-spacing: 0.02em; }
+    .card-modern > .card-body-modern { padding: 18px; }
+    .card-modern > .card-body-modern > .row,
+    .card-modern > .card-body-modern > .list-group,
+    .card-modern > .card-body-modern > .total-section {
+        padding: 0;
+    }
 </style>
 
 <div class="card-modern">
     <div class="card-header-modern d-flex justify-content-between align-items-center">
-        <span>💰 Lập Phiếu Thu</span>
-        <span class="phieu-code" style="font-family: monospace; font-size: 0.9rem;">Mã phiếu: <span id="phieuCode">PT-</span></span>
+        <span class="receipt-headline">PHIẾU THU</span>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ url_for('phieu_thu_list') }}" class="btn-modern btn-modern-outline btn-sm">Danh sách phiếu</a>
+            <span class="phieu-code" style="font-family: monospace; font-size: 0.9rem;">Mã phiếu: <span id="phieuCode">PT-</span></span>
+        </div>
     </div>
     <div class="card-body-modern">
-        <div class="row">
-            <div class="col-12 mb-4">
+        <div class="row gx-4 gy-4">
+            <div class="col-12 col-xl-4">
                 <div class="card-modern" style="background: var(--bg-primary);">
+                    <div class="card-header-modern">🔍 Chọn sinh viên</div>
                     <div class="card-body-modern">
-                        <div class="row align-items-center">
-                            <div class="col-12 col-md-4">
-                                <label class="form-label">🔍 Chọn sinh viên</label>
-                                <select id="lopSelect" class="form-modern mb-2">
-                                    <option value="">-- Chọn lớp --</option>
-                                    {% for lop in lop_list %}
-                                    <option value="{{ lop.id }}">{{ lop.ten_lop }}</option>
-                                    {% endfor %}
-                                </select>
-                                <select id="sinhVienSelect" class="form-modern" disabled>
-                                    <option value="">-- Chọn sinh viên --</option>
-                                </select>
+                        <div class="mb-3">
+                            <label class="form-label">Lớp</label>
+                            <select id="lopSelect" class="form-modern">
+                                <option value="">-- Chọn lớp --</option>
+                                {% for lop in lop_list %}
+                                <option value="{{ lop.id }}">{{ lop.ten_lop }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Sinh viên</label>
+                            <select id="sinhVienSelect" class="form-modern" disabled>
+                                <option value="">-- Chọn sinh viên --</option>
+                            </select>
+                        </div>
+                        <div id="studentProfile" style="display:none;" class="profile-summary">
+                            <!-- Sẽ được điền bằng JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-xl-8">
+                <div class="row gx-4 gy-4">
+                    <div class="col-12 col-md-6">
+                        <div class="card-modern">
+                            <div class="card-header-modern">💡 Gợi ý khoản thu</div>
+                            <div class="card-body-modern" id="suggestionArea">
+                                <p class="text-muted text-center">Chọn sinh viên để xem gợi ý</p>
                             </div>
-                            <div class="col-12 col-md-8">
-                                <div id="studentProfile" style="display:none;"></div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="card-modern">
+                            <div class="card-header-modern">🧾 Tóm tắt phiếu thu</div>
+                            <div class="card-body-modern">
+                                <div class="total-section" style="background: var(--bg-primary); padding: 16px; border-radius: 16px; margin-bottom: 18px;">
+                                    <div class="row align-items-center">
+                                        <div class="col-6">
+                                            <div class="total-label">Tổng số tiền</div>
+                                            <div class="total-amount" style="font-size: 1.8rem; font-weight: 700; color: var(--accent);" id="totalAmount">0 VNĐ</div>
+                                        </div>
+                                        <div class="col-6 text-end">
+                                            <div class="total-label">Tháng chọn</div>
+                                            <div class="fs-3 fw-bold" id="selectedCount">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">💳 Phương thức</label>
+                                    <select id="paymentMethod" class="form-modern">
+                                        <option value="Tiền mặt">Tiền mặt</option>
+                                        <option value="Chuyển khoản">Chuyển khoản</option>
+                                        <option value="Momo">Momo</option>
+                                        <option value="Thẻ ngân hàng">Thẻ ngân hàng</option>
+                                    </select>
+                                </div>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button class="btn-modern" onclick="resetForm()">🔄 Làm mới</button>
+                                    <button class="btn-modern btn-modern-primary" onclick="luuPhieuThu()">✅ Xác nhận thu tiền</button>
+                                </div>
+                                <div id="receiptActions" class="mt-3" style="display:none;"></div>
+                            </div>
+                        </div>
+                        <div class="card-modern mt-3">
+                            <div class="card-header-modern">📝 Nhận xét & Ghi chú</div>
+                            <div class="card-body-modern">
+                                <div class="mb-3">
+                                    <label class="form-label">Lời nhắn học tập</label>
+                                    <textarea id="ghiChu" class="form-modern" rows="3" placeholder="Viết lời nhắn học tập..."></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Nhận xét gửi phụ huynh</label>
+                                    <textarea id="nhanXet" class="form-modern" rows="3" placeholder="Ghi nhận xét để gửi cho phụ huynh..."></textarea>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-12 col-lg-6 mb-4">
-                <div class="card-modern">
-                    <div class="card-header-modern">💡 Gợi ý khoản thu</div>
-                    <div class="card-body-modern" id="suggestionArea">
-                        <p class="text-muted text-center">Chọn sinh viên để xem gợi ý</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-lg-6 mb-4">
+
+            <div class="col-12">
                 <div class="card-modern">
                     <div class="card-header-modern">📅 Chọn tháng đóng</div>
                     <div class="card-body-modern" id="monthSelector">
                         <p class="text-muted text-center">Chọn sinh viên để hiển thị các tháng</p>
-                    </div>
-                    <div id="totalArea" style="display:none; padding: 0 24px 24px;">
-                        <div class="total-section" style="background: var(--bg-primary); padding: 16px; border-radius: 16px; margin-bottom: 20px;">
-                            <div class="row align-items-center">
-                                <div class="col-6">
-                                    <div class="total-label">Tổng số tiền</div>
-                                    <div class="total-amount" style="font-size: 1.8rem; font-weight: 700; color: var(--accent);" id="totalAmount">0 VNĐ</div>
-                                </div>
-                                <div class="col-6 text-end">
-                                    <div class="total-label">Số tháng đã chọn</div>
-                                    <div class="fs-3 fw-bold" id="selectedCount">0</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="payment-method mb-3">
-                            <label class="form-label">💳 Phương thức thanh toán</label>
-                            <select id="paymentMethod" class="form-modern">
-                                <option value="Tiền mặt">💰 Tiền mặt</option>
-                                <option value="Chuyển khoản">🏦 Chuyển khoản</option>
-                                <option value="Momo">📱 Momo</option>
-                                <option value="Thẻ ngân hàng">💳 Thẻ ngân hàng</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">📝 Ghi chú</label>
-                            <textarea id="ghiChu" class="form-modern" rows="2" placeholder="Nhập ghi chú (nếu có)..."></textarea>
-                        </div>
-                        <div class="action-buttons d-flex gap-2">
-                            <button class="btn-modern" onclick="resetForm()">🔄 Làm mới</button>
-                            <button class="btn-modern btn-modern-primary" onclick="luuPhieuThu()">✅ Xác nhận thu tiền</button>
-                        </div>
                     </div>
                 </div>
             </div>
