@@ -1,0 +1,13 @@
+{
+  "name": "quan-ly-hoc-phi",
+  "version": "1.0.0",
+  "main": "electron-app/main.js",
+  "scripts": {
+    "start": "electron electron-app",
+    "dist": "cd electron-app && electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^34.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}
